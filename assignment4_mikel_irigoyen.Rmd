@@ -1,0 +1,56 @@
+---
+title: "assignment_4_mikel_irigoyen"
+author: "Mikel irigoyen"
+date: "11/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(janitor)
+library(here)
+library(lubridate)
+```
+
+##read in Data
+```{r}
+hares <- read.csv(here("data", "bonanza_hares.csv"))
+```
+
+## Exploratory findings 
+
+### annual juvenile hare traps 
+
+```{r}
+hares_by_year <- hares %>% 
+  mutate(date_updated = mdy(date)) %>% 
+  mutate(year_updated = year(date_updated)) %>%  
+
+group_by(year_updated) %>% 
+  count(year_updated) %>% 
+  summarize(hares_by_year, average = mean(n, na.rm = TRUE))
+
+
+ggplot() + geom_col(data = hares_by_year, aes(x = year_updated, y = n,)) +
+  scale_x_continuous(breaks = c(1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012)) +
+  labs(x = "", y = "Hares trapped", title = "Annual juvenile hare trap counts") +
+  labs(theme_dark(), color = "black", fill = "darkseagreen3")
+
+```
+
+## visualize juvenile hair weights 
+
+```{r}
+hare_weights <- hares %>% 
+  select(weight, sex, grid) %>% 
+  group_by(sex, grid)
+ggplot(hare_weights, aes(sex, weight, color = sex)) + 
+geom_boxplot(aes(sex, weight)) + 
+facet_wrap(~grid) + 
+labs(caption = "Juvenile Weight and Sex Comparision by Site", x = "Sex", y = "Weight (g)") +
+  stat_summary(fun.y=mean, geom = "point", shape = 22, size = 2)
+
+```
+
