@@ -12,6 +12,8 @@ library(tidyverse)
 library(janitor)
 library(here)
 library(lubridate)
+library(kableExtra)
+library(effsize)
 ```
 
 ##read in Data
@@ -24,33 +26,78 @@ hares <- read.csv(here("data", "bonanza_hares.csv"))
 ### annual juvenile hare traps 
 
 ```{r}
-hares_by_year <- hares %>% 
-  mutate(date_updated = mdy(date)) %>% 
-  mutate(year_updated = year(date_updated)) %>%  
+hares_by_year <- hares %>%  #create subset
+  filter(age == "j") %>%  #filter by age: juvenile
+mutate(date_updated = mdy(date)) %>%  #use lubridate to change date format
+  mutate(year_updated = year(date_updated)) %>%  #create new column for year
 
-group_by(year_updated) %>% 
-  count(year_updated) %>% 
-  summarize(hares_by_year, average = mean(n, na.rm = TRUE))
+group_by(year_updated) %>% #group by year
+  count(year_updated) %>%   #use count function to find n per year
+   summarize(hares_by_year, average = mean(n, na.rm = TRUE)) # find the mean number of hairs trapped per year
 
 
-ggplot() + geom_col(data = hares_by_year, aes(x = year_updated, y = n,)) +
-  scale_x_continuous(breaks = c(1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012)) +
-  labs(x = "", y = "Hares trapped", title = "Annual juvenile hare trap counts") +
-  labs(theme_dark(), color = "black", fill = "darkseagreen3")
+ggplot(hares_by_year, aes(x = year_updated, y = n))+ geom_col() + # make a column plot showing hares caught per year
+  scale_x_continuous(breaks = c(1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012)) + # maybe a better way to do this but it seems to work... just updating the axis to show all years
+  labs(x = "", y = "Hares trapped", title = "Annual juvenile hare trap counts") + #adding labels
+  theme_bw() # new theme 
 
 ```
 
 ## visualize juvenile hair weights 
 
 ```{r}
-hare_weights <- hares %>% 
-  select(weight, sex, grid) %>% 
-  group_by(sex, grid)
-ggplot(hare_weights, aes(sex, weight, color = sex)) + 
-geom_boxplot(aes(sex, weight)) + 
-facet_wrap(~grid) + 
-labs(caption = "Juvenile Weight and Sex Comparision by Site", x = "Sex", y = "Weight (g)") +
-  stat_summary(fun.y=mean, geom = "point", shape = 22, size = 2)
+hare_weights <- hares %>% #create subset 
+  filter(age == "j") %>% #filter by age: juvenile
+  select(weight, sex, grid) %>% #select by weight, sex, and site (grid)
+  group_by(sex, grid) #group by sex and site 
 
+ggplot(hare_weights, aes(sex, weight, color = sex)) +  #create a boxplot
+geom_boxplot(aes(sex, weight)) + 
+facet_wrap(~grid) + #facet wrap to show all 3 sites side by side 
+labs(caption = "Juvenile Weight and Sex Comparision by Site", x = "Sex", y = "Weight (g)") + # captions and labels 
+  stat_summary(fun.y=mean, geom = "point", shape = 22, size = 2) + # cool way to show mean on the boxplot
+  theme_bw() + #new theme 
+  theme(plot.caption = element_text(hjust = 0, size = 12), legend.title = element_blank()) + #change location and size of plot caption
+scale_fill_discrete(labels(c("A", "B", "C"))) # trying to change label names on legend 
+
+```
+
+## Juvenile weight comparison (male & female snowshoe hares).
+
+```{r}
+hare_comparison <- hare_weights %>%  #create subset 
+  filter(age == "j") %>% #filter by age: juvenile
+  na.omit(hare_comparison) %>%  # get rid of NA data so we can focus on just males and females
+  group_by(sex) %>% # group by sex (m or f)
+  summarize(mean_weight = mean(weight, na.rm = TRUE), #find the mean 
+            sd_weight = sd(weight, na.rm = TRUE), #find the standard deviation
+            sample_size = n()) #find the sample size n 
+
+hare_comparison %>%  #dataframe to use for kableExtra
+  kbl(caption = "Juvenile weight comparison", col.names = c("Sex", "Mean (g)", "SD (g)", "Sample Size")) %>%  #adding a caption for the table and changing column names
+  kable_classic(full_width = F, html_font = "Cambria") #classic look, changed width of table, and font style 
+
+```
+
+```{r}
+ggplot(hare_weights, aes(weight)) + # creating a ggplot by weights 
+  geom_histogram() + #histogram
+  facet_wrap(~sex) #facet wrap by sex to see m and f side by side
+
+ggplot(hare_weights, aes(sample = weight)) + # everything same as histogram except this time we re making a qqplot... dont forget the "sample =" for qq plots
+  geom_qq() + #qq plot
+  facet_wrap(~sex) #facet wrap by sex to split plot into m and f 
+
+female_hares <- hare_weights %>% #create subset
+  filter(sex == "f") %>%  #filter by sex (f)
+  pull(weight) # get the vectors for the weight values
+
+male_hares <- hare_weights %>% #do same as above but for males
+  filter(sex == "m") %>% 
+  pull(weight)
+
+hare_ttest <- t.test(female_hares, male_hares) ##t test time, female vs male
+
+effect_size <- cohen.d(na.omit(female_hares), na.omit(male_hares))
 ```
 
